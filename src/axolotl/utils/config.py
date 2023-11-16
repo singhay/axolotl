@@ -467,6 +467,11 @@ def validate_config(cfg):
             "max_memory and gpu_memory_limit are mutually exclusive and cannot be used together."
         )
 
+    if cfg.test_datasets and cfg.val_set_size:
+        raise ValueError(
+            "non-zero val_set_size should not be used with test_datasets configuration"
+        )
+
     # TODO
     # MPT 7b
     # https://github.com/facebookresearch/bitsandbytes/issues/25

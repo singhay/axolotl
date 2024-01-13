@@ -978,7 +978,6 @@ class HFDPOTrainerBuilder(TrainerBuilderBase):
             args=training_args,
             beta=self.cfg.dpo_beta or 0.1,
             train_dataset=self.train_dataset,
-            eval_dataset=None,
             tokenizer=self.tokenizer,
             max_length=self.cfg.sequence_len,
             max_target_length=None,

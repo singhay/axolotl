@@ -12,14 +12,19 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from functools import wraps
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import torch
 import transformers
 from datasets import Dataset
 from torch.optim.lr_scheduler import OneCycleLR
 from torch.utils.data import BatchSampler, DataLoader, RandomSampler, SequentialSampler
-from transformers import EarlyStoppingCallback, Trainer, TrainingArguments
+from transformers import (
+    EarlyStoppingCallback,
+    Trainer,
+    TrainerCallback,
+    TrainingArguments,
+)
 from transformers.trainer_utils import seed_worker
 from trl import DPOTrainer
 
@@ -501,21 +506,20 @@ class TrainerBuilderBase(abc.ABC):
     def build(self, total_num_steps):
         pass
 
-    @abstractmethod
-    def get_callbacks(self):
-        pass
+    def get_callbacks(self) -> List[TrainerCallback]:
+        callbacks = []
+        if self.cfg.use_wandb:
+            callbacks.append(
+                SaveAxolotlConfigtoWandBCallback(self.cfg.axolotl_config_path)
+            )
+
+        return callbacks
 
     @abstractmethod
     def get_post_trainer_create_callbacks(self, trainer):
         """
         Callbacks added after the trainer is created, usually b/c these need access to the trainer
         """
-
-
-class HFCausalTrainerBuilder(TrainerBuilderBase):
-    """
-    Build the HuggingFace training args/trainer for Causal models
-    """
 
     def hook_pre_create_training_args(self, training_arguments_kwargs):
         # TODO
@@ -533,10 +537,16 @@ class HFCausalTrainerBuilder(TrainerBuilderBase):
         # TODO
         return trainer
 
+
+class HFCausalTrainerBuilder(TrainerBuilderBase):
+    """
+    Build the HuggingFace training args/trainer for Causal models
+    """
+
     def get_callbacks(self):
-        callbacks = []
+        callbacks = super().get_callbacks()
         callbacks.append(GPUStatsCallback(self.cfg))
-        callbacks.append(EvalFirstStepCallback)
+        callbacks.append(EvalFirstStepCallback())
 
         if self.cfg.relora_steps:
             callbacks.append(ReLoRACallback(self.cfg))
@@ -545,12 +555,7 @@ class HFCausalTrainerBuilder(TrainerBuilderBase):
             hasattr(self.model, "use_bettertransformer")
             and self.model.use_bettertransformer is True
         ):
-            callbacks.append(SaveBetterTransformerModelCallback)
-
-        if self.cfg.use_wandb:
-            callbacks.append(
-                SaveAxolotlConfigtoWandBCallback(self.cfg.axolotl_config_path)
-            )
+            callbacks.append(SaveBetterTransformerModelCallback())
 
         if self.cfg.loss_watchdog_threshold is not None:
             callbacks.append(LossWatchDogCallback(self.cfg))
@@ -925,7 +930,7 @@ class HFDPOTrainerBuilder(TrainerBuilderBase):
     """
 
     def get_callbacks(self):
-        callbacks = []
+        callbacks = super().get_callbacks()
         return callbacks
 
     def get_post_trainer_create_callbacks(self, trainer):
@@ -1004,8 +1009,12 @@ class HFDPOTrainerBuilder(TrainerBuilderBase):
             max_target_length=None,
             max_prompt_length=self.cfg.sequence_len,
             generate_during_eval=True,
+            callbacks=self.get_callbacks(),
             **dpo_trainer_kwargs,
         )
+        dpo_trainer = self.hook_post_create_trainer(dpo_trainer)
+        for callback in self.get_post_trainer_create_callbacks(dpo_trainer):
+            dpo_trainer.add_callback(callback)
 
         return dpo_trainer
 

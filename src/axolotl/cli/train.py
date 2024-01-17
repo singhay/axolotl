@@ -16,6 +16,7 @@ from axolotl.cli import (
     print_axolotl_text_art,
 )
 from axolotl.common.cli import TrainerCliArgs
+from axolotl.prompt_strategies.sharegpt import register_chatml_template
 from axolotl.train import train
 
 LOG = logging.getLogger("axolotl.cli.train")
@@ -31,6 +32,12 @@ def do_cli(config: Path = Path("examples/"), **kwargs):
     parsed_cli_args, _ = parser.parse_args_into_dataclasses(
         return_remaining_strings=True
     )
+
+    if parsed_cfg.chat_template == "chatml" and parsed_cfg.default_system_message:
+        LOG.info(
+            f"ChatML set. Adding default system message: {parsed_cfg.default_system_message}"
+        )
+        register_chatml_template(parsed_cfg.default_system_message)
 
     if parsed_cfg.rl:
         dataset_meta = load_rl_datasets(cfg=parsed_cfg, cli_args=parsed_cli_args)

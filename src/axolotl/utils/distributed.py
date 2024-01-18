@@ -1,6 +1,7 @@
 """
 utility helpers for distributed checks
 """
+import logging
 import os
 import pickle  # nosec
 from contextlib import contextmanager
@@ -10,6 +11,8 @@ import torch.distributed as dist
 from accelerate import Accelerator
 
 accelerate = None  # pylint: disable=invalid-name
+
+LOG = logging.getLogger("axolotl")
 
 
 def load_accelerate():
@@ -33,7 +36,9 @@ def barrier():
     reach the barrier before proceeding further.
     """
     if is_distributed():
+        LOG.info("waiting for barrier")
         dist.barrier()
+        LOG.info("barrier passed")
 
 
 def is_main_process():

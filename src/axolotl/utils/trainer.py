@@ -114,6 +114,7 @@ def process_datasets_for_packing(cfg, train_dataset, eval_dataset, tokenizer):
                 add_length,
                 num_proc=cfg.dataset_processes,
                 load_from_cache_file=not cfg.is_preprocess,
+                desc="Packing (Group By Length)",
             )
 
         if cfg.sample_packing:
@@ -121,6 +122,7 @@ def process_datasets_for_packing(cfg, train_dataset, eval_dataset, tokenizer):
                 add_position_ids,
                 num_proc=cfg.dataset_processes,
                 load_from_cache_file=not cfg.is_preprocess,
+                desc="Packing (Sample Packing)",
             )
             if cfg.eval_sample_packing is not False:
                 if eval_dataset:
@@ -128,6 +130,7 @@ def process_datasets_for_packing(cfg, train_dataset, eval_dataset, tokenizer):
                         add_position_ids,
                         num_proc=cfg.dataset_processes,
                         load_from_cache_file=not cfg.is_preprocess,
+                        desc="Packing (Sample Packing)",
                     )
 
         if cfg.group_by_length or cfg.sample_packing:
@@ -138,12 +141,14 @@ def process_datasets_for_packing(cfg, train_dataset, eval_dataset, tokenizer):
             drop_long,
             num_proc=cfg.dataset_processes,
             load_from_cache_file=not cfg.is_preprocess,
+            desc="Dropping Long Sequences",
         )
         if eval_dataset:
             eval_dataset = eval_dataset.filter(
                 drop_long,
                 num_proc=cfg.dataset_processes,
                 load_from_cache_file=not cfg.is_preprocess,
+                desc="Dropping Long Sequences",
             )
 
         # Phi doesn't want the attention_mask feature when training
@@ -163,9 +168,13 @@ def process_datasets_for_packing(cfg, train_dataset, eval_dataset, tokenizer):
 def process_pretraining_datasets_for_packing(train_dataset, sequence_len):
     drop_long = partial(drop_long_seq, sequence_len=sequence_len)
 
-    train_dataset = train_dataset.filter(drop_long)
+    train_dataset = train_dataset.filter(
+        drop_long,
+        desc="Dropping Long Sequences",
+    )
     train_dataset = train_dataset.map(
         add_position_ids,
+        desc="Packing Pretraining Dataset",
     )
     return train_dataset
 
